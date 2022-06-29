@@ -1,0 +1,43 @@
+plugins {
+    id 'java'
+    id 'application'
+}
+
+application {
+    mainClass = 'com.example.Main'
+}
+
+java {
+    toolchain {
+        languageVersion.set(JavaLanguageVersion.of(8))
+    }
+}
+group 'com.example'
+version '1.0-SNAPSHOT'
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation platform('software.amazon.awssdk:bom:2.15.0')
+    implementation group: 'com.google.code.gson', name: 'gson', version: '2.3.1'
+    implementation 'com.amazonaws:aws-java-sdk:1.12.220'
+    implementation 'com.amazonaws:aws-java-sdk-elasticloadbalancing'
+    implementation 'software.amazon.awssdk:cloudwatch'
+    implementation 'software.amazon.awssdk:auth'
+    implementation 'software.amazon.awssdk:regions'
+    implementation 'co.elastic.clients:elasticsearch-java:8.2.3'
+    implementation 'com.fasterxml.jackson.core:jackson-databind:2.12.3'
+    implementation 'org.elasticsearch.client:elasticsearch-rest-high-level-client:7.17.3'
+    implementation group: 'org.json', name: 'json', version: '20090211'
+    implementation group: 'org.slf4j', name: 'slf4j-simple', version: '1.6.1'
+    implementation group: 'org.apache.poi', name: 'poi', version: '3.9'
+    testImplementation group: 'org.slf4j', name: 'slf4j-simple', version: '1.6.1'
+    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.8.1'
+    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.8.1'
+}
+
+test {
+    useJUnitPlatform()
+}

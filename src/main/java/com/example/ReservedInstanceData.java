@@ -206,33 +206,19 @@ class ReservedInstanceData {
      * @param matcher the hashmap into which we want to insert
      * @param index the index at which the reserved instance in context will occur in reservedInstanceData arraylist
      */
-    public void insertIntoHashmap(HashMap<String, HashMap<String, HashMap<String, HashMap<String, ArrayList<Integer>>>>> matcher, int index){
+    public void insertIntoHashmap(HashMap<String,ArrayList<Integer>> matcher, int index){
         /*
         * Order of Insertion
         * Availability Zone
         * Tenancy
         * Instance Type
         * Product Description*/
-        HashMap<String, HashMap<String, HashMap<String,ArrayList<Integer>>>> firstLevel = new HashMap<>();
-        HashMap<String, HashMap<String,ArrayList<Integer>>> secondLevel = new HashMap<>();
-        HashMap<String,ArrayList<Integer>> thirdLevel = new HashMap<>();
-        ArrayList<Integer> fourthLevel = new ArrayList<>();
-        if(!matcher.containsKey(this.availabilityZone))
-            matcher.put(this.availabilityZone,firstLevel);
-        firstLevel = matcher.get(this.availabilityZone);
 
-        if(!firstLevel.containsKey(this.tenancy))
-            firstLevel.put(this.tenancy,secondLevel);
-        secondLevel = firstLevel.get(this.tenancy);
-
-        if(!secondLevel.containsKey(this.instanceType))
-            secondLevel.put(this.instanceType,thirdLevel);
-        thirdLevel = secondLevel.get(this.instanceType);
-
-        if(!thirdLevel.containsKey(this.productDescription))
-            thirdLevel.put(this.productDescription,fourthLevel);
-        fourthLevel = thirdLevel.get(this.productDescription);
-        fourthLevel.add(index);
+        String representativeString = this.availabilityZone + this.tenancy + this.instanceType + this.productDescription;
+        if(!matcher.containsKey(representativeString))
+            matcher.put(representativeString,new ArrayList<>());
+        ArrayList<Integer> relatedIndices = matcher.get(representativeString);
+        relatedIndices.add(index);
     }
 
     /**

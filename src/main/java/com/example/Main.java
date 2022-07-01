@@ -132,7 +132,7 @@ class AWSCostOptimizerAndReportGenerator implements AwsCredentialsProvider {
 
     /*
     * Availability Zone, Tenancy, Instance Type, Product Description*/
-    private HashMap<String, HashMap<String, HashMap<String, HashMap<String,ArrayList<Integer>>>>> reservedInstanceMatcher = new HashMap<>();
+    private HashMap<String, ArrayList<Integer>> reservedInstanceMatcher = new HashMap<>();
     /**
      * Default Constructor
      * @param debugStatus If this is true then the code is run in DEBUG mode which will lead to printing of some extra information
@@ -260,8 +260,8 @@ class AWSCostOptimizerAndReportGenerator implements AwsCredentialsProvider {
 //        regions.add(Region.ME_SOUTH_1); //ERROR
         regions.add(Region.SA_EAST_1);
 
-        regions.clear();
-        regions.add(Region.US_EAST_1);
+//        regions.clear();
+//        regions.add(Region.US_EAST_1);
 
         for(Region region : regions) {
             if(DEBUG)
@@ -278,7 +278,7 @@ class AWSCostOptimizerAndReportGenerator implements AwsCredentialsProvider {
             getAllInstanceTypesInfo(Region.US_EAST_1,true);
 
         if(PRICE_COMPARISON)
-            getOneTimeEc2Info(Region.US_EAST_1, true);
+            getOneTimeEc2Info(Region.US_EAST_1, false);
         makeExcelReportFile(REPORT_FILENAME_WITH_PATH); // exceptions handled
     }
 
@@ -512,37 +512,29 @@ class AWSCostOptimizerAndReportGenerator implements AwsCredentialsProvider {
         if (reservedInstancesData == null)
             return false;
         /*
-         * Linear search to search from the reserved instances ArrayList
-         * */
+        // Linear search to search from the reserved instances ArrayList
         for (ReservedInstanceData reservedInstance : reservedInstancesData) {
             if (reservedInstance.isActive() && reservedInstance.isRemaining() && reservedInstance.matchInstance(instance)) {
                 reservedInstance.foundOne();
                 return true;
             }
         }
+         */
 
-//        /*
-//        * New Way using Hashmaps, Supposed to be faster than the above one
-//        * */
-//        if(reservedInstanceMatcher.containsKey(instance.getAvailabilityZone())){
-//            HashMap<String, HashMap<String, HashMap<String,ArrayList<Integer>>>> firstLevel = reservedInstanceMatcher.get(instance.getAvailabilityZone());
-//            if(firstLevel.containsKey(instance.getTenancy())){
-//                HashMap<String, HashMap<String,ArrayList<Integer>>> secondLevel = firstLevel.get(instance.getTenancy());
-//                if(secondLevel.containsKey(instance.getType())) {
-//                    HashMap<String, ArrayList<Integer>> thirdLevel = secondLevel.get(instance.getType());
-//                    if (thirdLevel.containsKey(instance.getPlatformDetails())) {
-//                        ArrayList<Integer> fourthLevel = thirdLevel.get(instance.getPlatformDetails());
-//                        for (Integer index : fourthLevel) {
-//                            ReservedInstanceData reservedInstance = reservedInstancesData.get(index);
-//                            if (reservedInstance.isActive() && reservedInstance.isRemaining()) {
-//                                reservedInstance.foundOne();
-//                                return true;
-//                            }
-//                        }
-//                    }
-//                }
-//            }
-//        }
+        /*
+         * New Way using Hashmaps, Supposed to be faster than the above one
+         * */
+        String representativeString = instance.getAvailabilityZone() + instance.getTenancy() + instance.getType() + instance.getPlatformDetails();
+        if (reservedInstanceMatcher.containsKey(representativeString)) {
+            ArrayList<Integer> indices = reservedInstanceMatcher.get(representativeString);
+            for (Integer index : indices) {
+                ReservedInstanceData reservedInstance = reservedInstancesData.get(index);
+                if (reservedInstance.isActive() && reservedInstance.isRemaining()) {
+                    reservedInstance.foundOne();
+                    return true;
+                }
+            }
+        }
         return false;
     }
 
@@ -579,6 +571,10 @@ class AWSCostOptimizerAndReportGenerator implements AwsCredentialsProvider {
                 type = 1;
                 ec2SpotInstancesData.add(instance);
             } else if (isReserved(instance)) {
+                /*
+                Earlier this was o(n), isReserved method
+                Now it has been improved to constant time by making use of hashmaps
+                 */
                 type = 2;
                 ec2ReservedInstancesData.add(instance);
             } else {
@@ -787,7 +783,7 @@ class AWSCostOptimizerAndReportGenerator implements AwsCredentialsProvider {
                         .withAvailabilityZone(instance.getAvailabilityZone())
                         .withTenancy(instance.getInstanceTenancy())
                         .build();
-//                currentInstance.insertIntoHashmap(reservedInstanceMatcher,reservedInstancesData.size());
+                currentInstance.insertIntoHashmap(reservedInstanceMatcher,reservedInstancesData.size());
                 currentInstance.setRegion(region);
                 reservedInstancesData.add(currentInstance);
             } catch (Exception e) {
@@ -1384,7 +1380,7 @@ class AWSCostOptimizerAndReportGenerator implements AwsCredentialsProvider {
         CreateIndexResponse createResponse = esClient.indices()
                 .create(createIndexBuilder -> createIndexBuilder
                         .index(finalIndexName)
-                        .aliases("S3BucketsData", aliasBuilder -> aliasBuilder
+                        .aliases("S3Info", aliasBuilder -> aliasBuilder
                                 .isWriteIndex(true)
                         )
                 );
@@ -1405,8 +1401,8 @@ class AWSCostOptimizerAndReportGenerator implements AwsCredentialsProvider {
             System.out.println("Fetching data of buckets");
         }
 
-        boolean createIndex = false;
-        String indexName = "my-index";
+        boolean createIndex = true;
+        String indexName = "test-index";
         ElasticsearchClient esClient = createElasticSearchClient();
 
         if(createIndex) {
@@ -2078,7 +2074,7 @@ class AWSCostOptimizerAndReportGenerator implements AwsCredentialsProvider {
 
 public class Main {
     public static void main(String[] args) {
-        boolean debug = true;
+        boolean debug = false;
 
         /*
         * Credentials to the AWS account are to be read from the project.properties file

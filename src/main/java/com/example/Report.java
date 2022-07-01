@@ -106,7 +106,7 @@ class Report {
 
         Double suggestedMemory;
         if(memUtil == null){
-            suggestedMemory = this.typeToSize.get(instance.getType()).doubleValue();
+            suggestedMemory = Math.ceil(this.typeToSize.get(instance.getType()).doubleValue()/1024.0);
         } else {
             memUtil = Math.min(memUtil*((BUFFER_EC2_UTIL_PERCENTAGE/100)+1.0),100.0);
             Double memRequired = memUtil*(this.typeToSize.get(instance.getType()).doubleValue());

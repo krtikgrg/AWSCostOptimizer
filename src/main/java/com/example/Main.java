@@ -55,9 +55,6 @@ import org.json.JSONObject;
 * As of now, it retrieves the data from the AWS account using the credentials
 * provided, processes them and prepares a report of the resources which might be considered as unused.
 * */
-
-/*
-* change optimizer*/
 class AWSCostOptimizerAndReportGenerator implements AwsCredentialsProvider {
     private static boolean DEBUG = true; // If true then Additional information is printed to assist in debugging
 
@@ -238,11 +235,8 @@ class AWSCostOptimizerAndReportGenerator implements AwsCredentialsProvider {
         regions.add(Region.US_WEST_1);
         regions.add(Region.US_WEST_2);
 
-//        regions.add(Region.AF_SOUTH_1); //ERROR
-
         regions.add(Region.AP_SOUTHEAST_1);
         regions.add(Region.AP_SOUTH_1);
-//        regions.add(Region.AP_EAST_1); //ERROR
         regions.add(Region.AP_NORTHEAST_1);
         regions.add(Region.AP_NORTHEAST_2);
         regions.add(Region.AP_SOUTHEAST_2);
@@ -252,12 +246,10 @@ class AWSCostOptimizerAndReportGenerator implements AwsCredentialsProvider {
 
         regions.add(Region.EU_NORTH_1);
         regions.add(Region.EU_CENTRAL_1);
-//        regions.add(Region.EU_SOUTH_1); //ERROR
         regions.add(Region.EU_WEST_1);
         regions.add(Region.EU_WEST_2);
         regions.add(Region.EU_WEST_3);
 
-//        regions.add(Region.ME_SOUTH_1); //ERROR
         regions.add(Region.SA_EAST_1);
 
 //        regions.clear();
@@ -535,6 +527,18 @@ class AWSCostOptimizerAndReportGenerator implements AwsCredentialsProvider {
                 }
             }
         }
+
+        representativeString = instance.getRegion() + instance.getTenancy() + instance.getType() + instance.getPlatformDetails();
+        if (reservedInstanceMatcher.containsKey(representativeString)) {
+            ArrayList<Integer> indices = reservedInstanceMatcher.get(representativeString);
+            for (Integer index : indices) {
+                ReservedInstanceData reservedInstance = reservedInstancesData.get(index);
+                if (reservedInstance.isActive() && reservedInstance.isRemaining()) {
+                    reservedInstance.foundOne();
+                    return true;
+                }
+            }
+        }
         return false;
     }
 
@@ -783,8 +787,8 @@ class AWSCostOptimizerAndReportGenerator implements AwsCredentialsProvider {
                         .withAvailabilityZone(instance.getAvailabilityZone())
                         .withTenancy(instance.getInstanceTenancy())
                         .build();
-                currentInstance.insertIntoHashmap(reservedInstanceMatcher,reservedInstancesData.size());
                 currentInstance.setRegion(region);
+                currentInstance.insertIntoHashmap(reservedInstanceMatcher,reservedInstancesData.size());
                 reservedInstancesData.add(currentInstance);
             } catch (Exception e) {
                 e.printStackTrace();

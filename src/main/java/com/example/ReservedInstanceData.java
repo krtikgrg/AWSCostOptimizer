@@ -214,6 +214,9 @@ class ReservedInstanceData {
         * Instance Type
         * Product Description*/
 
+        if(this.availabilityZone == null)
+            this.availabilityZone = this.region.toString();
+
         String representativeString = this.availabilityZone + this.tenancy + this.instanceType + this.productDescription;
         if(!matcher.containsKey(representativeString))
             matcher.put(representativeString,new ArrayList<>());
@@ -333,7 +336,7 @@ class ReservedInstanceData {
         if(this.instanceCount == null || this.instanceCount <= 0){
             throw new Exception("Either instance count value is not provided or the value is unacceptable");
         }
-        if(this.availabilityZone == null){
+        if(this.availabilityZone == null && this.scope.equals("Availability Zone")){
             throw new Exception("Availability Zone of the reserved instance must be provided");
         }
         if(this.instanceType == null){

@@ -1,7 +1,7 @@
 package com.example;
 /*
-* All the required Classes from AWS and elastic search
-* */
+ * All the required Classes from AWS and elastic search
+ * */
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch.core.IndexResponse;
 import co.elastic.clients.elasticsearch.indices.CreateIndexResponse;
@@ -43,18 +43,18 @@ import software.amazon.awssdk.services.cloudwatch.CloudWatchClient;
 import software.amazon.awssdk.services.cloudwatch.model.*;
 
 /*
-* General Class Imports
-* */
+ * General Class Imports
+ * */
 import java.io.*;
 import java.time.Instant;
 import java.util.*;
 import org.json.JSONObject;
 
 /**
-* AWSCostOptimizerAndReportGenerator is the primary class which takes care of all the actions.
-* As of now, it retrieves the data from the AWS account using the credentials
-* provided, processes them and prepares a report of the resources which might be considered as unused.
-* */
+ * AWSCostOptimizerAndReportGenerator is the primary class which takes care of all the actions.
+ * As of now, it retrieves the data from the AWS account using the credentials
+ * provided, processes them and prepares a report of the resources which might be considered as unused.
+ * */
 class AWSCostOptimizerAndReportGenerator implements AwsCredentialsProvider {
     private static boolean DEBUG = true; // If true then Additional information is printed to assist in debugging
 
@@ -64,6 +64,7 @@ class AWSCostOptimizerAndReportGenerator implements AwsCredentialsProvider {
      * If it is true then a call to an API is made which takes about 10-12 minutes to run alone.
      */
     private static final boolean PRICE_COMPARISON = false;
+    private static final boolean ADD_S3_DATA_TO_ELASTIC_SEARCH = false;
     private static final boolean SAVETIME = true; // If true then clubbing of getMetricData API calls happen that is one call for multiple resources else one call for each resource
     private static final boolean SUGGESTION_MODE = true; // If true then we make some suggestions based on pure simple logic for On Demand EC2 Instances (Number of VCPUs, Memory Required, and Which Family's instance should we use)
     private static final int DAYS_OF_DATA = 7; // The number of Days of Data which we should fetch from cloudwatch
@@ -128,7 +129,7 @@ class AWSCostOptimizerAndReportGenerator implements AwsCredentialsProvider {
     private HashMap<String, Double> ec2InstanceTypeToPrice = new HashMap<String, Double>(); // hashmap storing the mapping between the instance type and the on demand price of it for a specific region
 
     /*
-    * Availability Zone, Tenancy, Instance Type, Product Description*/
+     * Availability Zone, Tenancy, Instance Type, Product Description*/
     private HashMap<String, ArrayList<Integer>> reservedInstanceMatcher = new HashMap<>();
     /**
      * Default Constructor
@@ -136,8 +137,8 @@ class AWSCostOptimizerAndReportGenerator implements AwsCredentialsProvider {
      */
     public AWSCostOptimizerAndReportGenerator(boolean debugStatus) {
         /*
-        * Reading Credentials from the properties file
-        * */
+         * Reading Credentials from the properties file
+         * */
         readProperties();
 
         AWSCostOptimizerAndReportGenerator.DEBUG = debugStatus;
@@ -1381,10 +1382,11 @@ class AWSCostOptimizerAndReportGenerator implements AwsCredentialsProvider {
      */
     public void createElasticSearchIndex(ElasticsearchClient esClient, String indexName) throws IOException {
         String finalIndexName = indexName;
+        String alias_name = indexName + "-ALIAS";
         CreateIndexResponse createResponse = esClient.indices()
                 .create(createIndexBuilder -> createIndexBuilder
                         .index(finalIndexName)
-                        .aliases("S3Info", aliasBuilder -> aliasBuilder
+                        .aliases(alias_name, aliasBuilder -> aliasBuilder
                                 .isWriteIndex(true)
                         )
                 );
@@ -1406,10 +1408,10 @@ class AWSCostOptimizerAndReportGenerator implements AwsCredentialsProvider {
         }
 
         boolean createIndex = true;
-        String indexName = "test-index";
+        String indexName = "index-july-final-ppt";
         ElasticsearchClient esClient = createElasticSearchClient();
 
-        if(createIndex) {
+        if(ADD_S3_DATA_TO_ELASTIC_SEARCH && createIndex) {
             try {
                 createElasticSearchIndex(esClient, indexName);
             } catch (Exception e) {
@@ -1513,14 +1515,16 @@ class AWSCostOptimizerAndReportGenerator implements AwsCredentialsProvider {
                     }
                     currentBucket.setLastModifiedDate(maxInstant);
                 }
-                IndexResponse response;
-                try {
-                    response = currentBucket.pushToElasticSearch(esClient, indexName);
-                    if(DEBUG) {
-                        System.out.println("Index Insert Response" + response);
+                if(ADD_S3_DATA_TO_ELASTIC_SEARCH) {
+                    IndexResponse response;
+                    try {
+                        response = currentBucket.pushToElasticSearch(esClient, indexName);
+                        if (DEBUG) {
+                            System.out.println("Index Insert Response" + response);
+                        }
+                    } catch (Exception e) {
+                        e.printStackTrace();
                     }
-                } catch (Exception e){
-                    e.printStackTrace();
                 }
                 s3bucketsData.add(currentBucket);
 
@@ -1887,8 +1891,8 @@ class AWSCostOptimizerAndReportGenerator implements AwsCredentialsProvider {
             AmazonEC2 client = AmazonEC2Client.builder().withCredentials(CREDENTIALS).withRegion(region.toString()).build();
 
             /*
-            * Making the API call to get the data
-            * */
+             * Making the API call to get the data
+             * */
             DescribeInstanceTypesResult result = client.describeInstanceTypes(new DescribeInstanceTypesRequest());
 
             while (true) {
@@ -1902,8 +1906,8 @@ class AWSCostOptimizerAndReportGenerator implements AwsCredentialsProvider {
             }
 
             /*
-            * Saving in Files
-            * */
+             * Saving in Files
+             * */
             try {
                 FileOutputStream outstream = new FileOutputStream("instanceTypeSize.data");
                 Properties props = new Properties();
@@ -1925,8 +1929,8 @@ class AWSCostOptimizerAndReportGenerator implements AwsCredentialsProvider {
         } else {
 
             /*
-            * Reading from Files
-            * */
+             * Reading from Files
+             * */
             try {
                 ec2InstanceTypeToMemorySizeInMB = new HashMap<>();
                 FileInputStream istream = new FileInputStream("instanceTypeSize.data");
@@ -1970,7 +1974,7 @@ class AWSCostOptimizerAndReportGenerator implements AwsCredentialsProvider {
             nuList.add(new Filter().withType("TERM_MATCH").withField("capacitystatus").withValue("used"));
 
             /*
-            * Making the API call*/
+             * Making the API call*/
             AWSPricing client = AWSPricingClient.builder().withCredentials(CREDENTIALS).withRegion(region.toString()).build();
             GetProductsResult result = client.getProducts(new GetProductsRequest().withServiceCode("AmazonEC2").withFilters(nuList));
 
@@ -1979,7 +1983,7 @@ class AWSCostOptimizerAndReportGenerator implements AwsCredentialsProvider {
                     boolean toStop = true;
                     for (String current : result.getPriceList()) {
                         /*
-                        * Converting to JSON and using it appropriately so that we can get the exact information which is required*/
+                         * Converting to JSON and using it appropriately so that we can get the exact information which is required*/
                         JSONObject jsonObject = new JSONObject(current);
                         JSONObject attributeObject = (JSONObject) ((JSONObject) jsonObject.get("product")).get("attributes");
                         try {
@@ -2014,8 +2018,8 @@ class AWSCostOptimizerAndReportGenerator implements AwsCredentialsProvider {
             }
 
             /*
-            * Saving in files
-            * */
+             * Saving in files
+             * */
 
             try {
                 FileOutputStream outstream = new FileOutputStream("instanceTypeSizeN.data");
@@ -2043,8 +2047,8 @@ class AWSCostOptimizerAndReportGenerator implements AwsCredentialsProvider {
             }
         } else {
             /*
-            * Reading from files
-            * */
+             * Reading from files
+             * */
             try {
                 ec2InstanceTypeToMemorySizeInMB = new HashMap<>();
                 FileInputStream istream = new FileInputStream("instanceTypeSizeN.data");
@@ -2081,14 +2085,14 @@ public class Main {
         boolean debug = false;
 
         /*
-        * Credentials to the AWS account are to be read from the project.properties file
-        * */
+         * Credentials to the AWS account are to be read from the project.properties file
+         * */
         AWSCostOptimizerAndReportGenerator optimizer = new AWSCostOptimizerAndReportGenerator(debug);
 
         /*
-        * No Need to set Region now, as the code is programmed to run for multiple regions automatically
-        * optimizer.setRegion(Region.US_EAST_1); // Check Bottom of the file for reference
-        * */
+         * No Need to set Region now, as the code is programmed to run for multiple regions automatically
+         * optimizer.setRegion(Region.US_EAST_1); // Check Bottom of the file for reference
+         * */
         optimizer.getDataAndGenerateReport();
 
         if(debug)

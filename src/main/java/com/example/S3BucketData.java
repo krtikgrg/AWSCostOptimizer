@@ -150,6 +150,12 @@ class S3BucketData implements Comparable<S3BucketData>{
         Collections.sort(this.objects,Collections.reverseOrder());
     }
 
+    public String getLocation(){
+        if(this.location == null)
+            return "";
+        return this.location;
+    }
+
     /**
      * Method to compute and store the relevant objects out of all the objects. Relevant objects here are the objects which have not
      * been modified in the last x number of days. The value x is passed a parameter to this method. Remember the stored collection can
@@ -225,6 +231,20 @@ class S3BucketData implements Comparable<S3BucketData>{
         return -1;
     }
 
+    public Double getNumberOfObjects(){
+        Double numberObjects = 0.0;
+        if(this.averageNumberOfObjects.size()>0)
+            numberObjects = averageNumberOfObjects.get(0).getValue();
+        return numberObjects;
+    }
+
+    public Double getBucketSizeBytes(){
+        double bucketSize = 0.0;
+        if(this.averageBucketSizeBytes.size()>0)
+            bucketSize = averageBucketSizeBytes.get(0).getValue();
+        return bucketSize;
+    }
+
     /**
      * Method to add the bucket into elastic search
      * @param esClient the elastic search client which is to be used
@@ -234,7 +254,14 @@ class S3BucketData implements Comparable<S3BucketData>{
      */
     public IndexResponse pushToElasticSearch(ElasticsearchClient esClient, String indexName) throws IOException {
 
-        S3BucketDataElasticSearch curObj = new S3BucketDataElasticSearch(this.bucketName,this.bucketSize,this.numberOfObjects,this.lastModified);
+//        S3BucketDataElasticSearch curObj = new S3BucketDataElasticSearch(this.bucketName,this.bucketSize,this.numberOfObjects,this.lastModified);
+
+        double bucketSize = 0.0, numberObjects = 0.0;
+        if(this.averageBucketSizeBytes.size()>0)
+            bucketSize = averageBucketSizeBytes.get(0).getValue();
+        if(this.averageNumberOfObjects.size()>0)
+            numberObjects = averageNumberOfObjects.get(0).getValue();
+        S3BucketDataElasticSearch curObj = new S3BucketDataElasticSearch(this.bucketName,bucketSize,numberObjects);
 
         IndexRequest.Builder<S3BucketDataElasticSearch> indexReqBuilder = new IndexRequest.Builder<>();
         indexReqBuilder.index(indexName);

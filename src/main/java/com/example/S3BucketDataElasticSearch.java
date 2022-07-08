@@ -5,45 +5,46 @@ import java.util.Date;
 
 class S3BucketDataElasticSearch implements Serializable {
     private String bucketName;
-    private Long bucketSize = 0L;
-    private int numberOfObjects;
-    private Date lastModified;
-    public S3BucketDataElasticSearch(String bucketName, Long bucketSize, int numberOfObjects, Date lastModified){
+    private Double bucketSize = 0.0;
+    private Double numberOfObjects;
+//    private Date lastModified;
+    public S3BucketDataElasticSearch(String bucketName, Double bucketSize, Double numberOfObjects){
         this.bucketName = bucketName;
         this.bucketSize = bucketSize;
         this.numberOfObjects = numberOfObjects;
-        this.lastModified = lastModified;
+//        this.lastModified = lastModified;
     }
+
 
     public String getBucketName() {
         return bucketName;
     }
 
-    public Long getBucketSize() {
+    public Double getBucketSize() {
         return bucketSize;
     }
 
-    public int getNumberOfObjects() {
+    public Double getNumberOfObjects() {
         return numberOfObjects;
     }
 
-    public Date getLastModified() {
-        return lastModified;
-    }
+//    public Date getLastModified() {
+//        return lastModified;
+//    }
 
     public void setBucketName(String bucketName) {
         this.bucketName = bucketName;
     }
 
-    public void setBucketSize(Long bucketSize) {
+    public void setBucketSize(Double bucketSize) {
         this.bucketSize = bucketSize;
     }
 
-    public void setNumberOfObjects(int numberOfObjects) {
+    public void setNumberOfObjects(Double numberOfObjects) {
         this.numberOfObjects = numberOfObjects;
     }
 
-    public void setLastModified(Date lastModified) {
-        this.lastModified = lastModified;
-    }
+//    public void setLastModified(Date lastModified) {
+//        this.lastModified = lastModified;
+//    }
 }

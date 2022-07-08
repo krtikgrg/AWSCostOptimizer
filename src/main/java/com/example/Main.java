@@ -31,6 +31,7 @@ import com.amazonaws.services.pricing.model.GetProductsResult;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.model.Bucket;
+import com.amazonaws.services.s3.model.GetBucketLocationRequest;
 import com.amazonaws.services.s3.model.ObjectListing;
 import com.amazonaws.services.s3.model.S3ObjectSummary;
 import org.apache.http.HttpHost;
@@ -64,7 +65,7 @@ class AWSCostOptimizerAndReportGenerator implements AwsCredentialsProvider {
      * If it is true then a call to an API is made which takes about 10-12 minutes to run alone.
      */
     private static final boolean PRICE_COMPARISON = false;
-    private static final boolean ADD_S3_DATA_TO_ELASTIC_SEARCH = false;
+    private static final boolean ADD_S3_DATA_TO_ELASTIC_SEARCH = true;
     private static final boolean SAVETIME = true; // If true then clubbing of getMetricData API calls happen that is one call for multiple resources else one call for each resource
     private static final boolean SUGGESTION_MODE = true; // If true then we make some suggestions based on pure simple logic for On Demand EC2 Instances (Number of VCPUs, Memory Required, and Which Family's instance should we use)
     private static final int DAYS_OF_DATA = 7; // The number of Days of Data which we should fetch from cloudwatch
@@ -230,48 +231,48 @@ class AWSCostOptimizerAndReportGenerator implements AwsCredentialsProvider {
     public void getDataAndGenerateReport() {
         S3BasicInfo(REGION,DAYS_OF_DATA,GRANULARITY_IN_HOURS);  // exceptions handled 2
 
-        ArrayList<Region> regions = new ArrayList<>();
-        regions.add(Region.US_EAST_1);
-        regions.add(Region.US_EAST_2);
-        regions.add(Region.US_WEST_1);
-        regions.add(Region.US_WEST_2);
-
-        regions.add(Region.AP_SOUTHEAST_1);
-        regions.add(Region.AP_SOUTH_1);
-        regions.add(Region.AP_NORTHEAST_1);
-        regions.add(Region.AP_NORTHEAST_2);
-        regions.add(Region.AP_SOUTHEAST_2);
-        regions.add(Region.AP_SOUTHEAST_2);
-
-        regions.add(Region.CA_CENTRAL_1);
-
-        regions.add(Region.EU_NORTH_1);
-        regions.add(Region.EU_CENTRAL_1);
-        regions.add(Region.EU_WEST_1);
-        regions.add(Region.EU_WEST_2);
-        regions.add(Region.EU_WEST_3);
-
-        regions.add(Region.SA_EAST_1);
-
-//        regions.clear();
+//        ArrayList<Region> regions = new ArrayList<>();
 //        regions.add(Region.US_EAST_1);
-
-        for(Region region : regions) {
-            if(DEBUG)
-                System.out.println("FETCHING DATA FOR REGION "+region.toString()+": ");
-            this.setRegion(region);
-            ec2BasicInfo(REGION, DAYS_OF_DATA, GRANULARITY_IN_HOURS); // exceptions handled 5
-            elbBasicInfo(REGION, DAYS_OF_DATA, GRANULARITY_IN_HOURS); // exceptions handled 4
-            ebsBasicInfo(REGION, DAYS_OF_DATA, GRANULARITY_IN_HOURS); // exceptions handles 2
-            eipBasicInfo(REGION); // exceptions handled
-            backupsBasicInfo(REGION); // exceptions handled
-        }
-
-        if(SUGGESTION_MODE)
-            getAllInstanceTypesInfo(Region.US_EAST_1,true);
-
-        if(PRICE_COMPARISON)
-            getOneTimeEc2Info(Region.US_EAST_1, false);
+//        regions.add(Region.US_EAST_2);
+//        regions.add(Region.US_WEST_1);
+//        regions.add(Region.US_WEST_2);
+//
+//        regions.add(Region.AP_SOUTHEAST_1);
+//        regions.add(Region.AP_SOUTH_1);
+//        regions.add(Region.AP_NORTHEAST_1);
+//        regions.add(Region.AP_NORTHEAST_2);
+//        regions.add(Region.AP_SOUTHEAST_2);
+//        regions.add(Region.AP_SOUTHEAST_2);
+//
+//        regions.add(Region.CA_CENTRAL_1);
+//
+//        regions.add(Region.EU_NORTH_1);
+//        regions.add(Region.EU_CENTRAL_1);
+//        regions.add(Region.EU_WEST_1);
+//        regions.add(Region.EU_WEST_2);
+//        regions.add(Region.EU_WEST_3);
+//
+//        regions.add(Region.SA_EAST_1);
+//
+////        regions.clear();
+////        regions.add(Region.US_EAST_1);
+//
+//        for(Region region : regions) {
+//            if(DEBUG)
+//                System.out.println("FETCHING DATA FOR REGION "+region.toString()+": ");
+//            this.setRegion(region);
+//            ec2BasicInfo(REGION, DAYS_OF_DATA, GRANULARITY_IN_HOURS); // exceptions handled 5
+//            elbBasicInfo(REGION, DAYS_OF_DATA, GRANULARITY_IN_HOURS); // exceptions handled 4
+//            ebsBasicInfo(REGION, DAYS_OF_DATA, GRANULARITY_IN_HOURS); // exceptions handles 2
+//            eipBasicInfo(REGION); // exceptions handled
+//            backupsBasicInfo(REGION); // exceptions handled
+//        }
+//
+//        if(SUGGESTION_MODE)
+//            getAllInstanceTypesInfo(Region.US_EAST_1,true);
+//
+//        if(PRICE_COMPARISON)
+//            getOneTimeEc2Info(Region.US_EAST_1, false);
         makeExcelReportFile(REPORT_FILENAME_WITH_PATH); // exceptions handled
     }
 
@@ -334,6 +335,11 @@ class AWSCostOptimizerAndReportGenerator implements AwsCredentialsProvider {
             report.createSheetAndLoad("Backups (Snapshots)");
             report.addHeading("SNAPSHOTS / BACKUPS", 3);
             report.addBackupData(backupsData, "BACKUPS OLDER THAN", BACKUPS_THRESHOLD_DAYS);
+            report.addRowGaps(2);
+
+            report.createSheetAndLoad("S3 Meta Data");
+            report.addHeading("S3 BUCKETS", 3);
+            report.addS3MetaData(s3bucketsData, "Information Of Buckets");
             report.addRowGaps(2);
 
             report.createSheetAndLoad("S3");
@@ -1408,7 +1414,7 @@ class AWSCostOptimizerAndReportGenerator implements AwsCredentialsProvider {
         }
 
         boolean createIndex = true;
-        String indexName = "index-july-final-ppt";
+        String indexName = "testing-index-final";
         ElasticsearchClient esClient = createElasticSearchClient();
 
         if(ADD_S3_DATA_TO_ELASTIC_SEARCH && createIndex) {
@@ -1418,31 +1424,27 @@ class AWSCostOptimizerAndReportGenerator implements AwsCredentialsProvider {
                 e.printStackTrace();
             }
         }
-        /*
         int numberBucketsClub = 240; // Max can be 249
         int metricsPerBucket = 2;
-         */
 
         /*
          * This API gives all buckets in the AWS account, no REGION dependency
          * */
         AmazonS3 s3c = AmazonS3Client.builder().withCredentials(CREDENTIALS).withRegion(region.toString()).enableForceGlobalBucketAccess().build();
 
-        /*
         ArrayList<MetricDataQuery> queries;
         HashMap<Region, CloudWatchClient> mapperRegionClient = new HashMap<>();
         HashMap<Region, ArrayList<MetricDataQuery>> mapperRegionQueries = new HashMap<>();
-         */
 
         for (Bucket bucket : s3c.listBuckets()) {
             /*
              * We need location information of each bucket to get the cloudwatch metrics for that bucket.
              * */
 
-            /*
+
             GetBucketLocationRequest rqst = new GetBucketLocationRequest(bucket.getName());
             String location = s3c.getBucketLocation(rqst);
-             */
+
 
             /*
              * HardCode for "US" output
@@ -1450,13 +1452,12 @@ class AWSCostOptimizerAndReportGenerator implements AwsCredentialsProvider {
              * I tried to go into the reasons of it but could not find one.
              * */
 
-            /*
+
             if (location.equals("US")) {
                 location = "us-east-1";
             }
-             */
 
-            ObjectListing objects = s3c.listObjects(bucket.getName());
+//            ObjectListing objects = s3c.listObjects(bucket.getName());
             /*
              * Using builder to build the object. All the information provided below
              * while creating the object is necessary
@@ -1465,11 +1466,12 @@ class AWSCostOptimizerAndReportGenerator implements AwsCredentialsProvider {
                 S3BucketData currentBucket = new S3BucketData
                         .S3BucketDataBuilder(bucket.getName())
                         .withOwner(bucket.getOwner().getDisplayName(), bucket.getOwner().getId())
-//                        .withLocation(location)
-                        .withNumberOfObjects(objects.getObjectSummaries().size())
+                        .withLocation(location)
+//                        .withNumberOfObjects(objects.getObjectSummaries().size())
+                        .withNumberOfObjects(0)
                         .build();
 
-                /*
+
                 Region curRegion = Region.of(location);
                 if (!mapperRegionClient.containsKey(curRegion)) {
                     CloudWatchClient cloudWatchClient = CloudWatchClient.builder().credentialsProvider(this).region(curRegion).build();
@@ -1483,62 +1485,63 @@ class AWSCostOptimizerAndReportGenerator implements AwsCredentialsProvider {
                 } else {
                     s3AttachMetrics(currentBucket, queries, hours, s3bucketsData.size());
                 }
-                 */
+
 
                 /*
                  * Files stored in S3 are referred to as Objects
                  * */
-                if (objects.getObjectSummaries().size() != 0) {
-                    /*
-                     * Storing metadata of the objects/files stored in S3 bucket in form of
-                     * a collection in the associated bucket
-                     * */
-                    Instant maxInstant = null;
-                    while (true) {
-                        for (S3ObjectSummary summary : objects.getObjectSummaries()) {
-                            currentBucket.addObject(summary.getKey(), summary.getStorageClass(), summary.getLastModified(), summary.getSize());
-                            Instant curInstant = summary.getLastModified().toInstant();
-                            if (maxInstant == null) {
-                                maxInstant = curInstant;
-                            } else {
-                                if (curInstant.isAfter(maxInstant)) {
-                                    maxInstant = curInstant;
-                                }
-                            }
-                        }
-                        if (objects.isTruncated()) {
-                            objects = s3c.listNextBatchOfObjects(objects);
-                            currentBucket.addInNumberOfObjects(objects.getObjectSummaries().size());
-                        } else {
-                            break;
-                        }
-                    }
-                    currentBucket.setLastModifiedDate(maxInstant);
-                }
-                if(ADD_S3_DATA_TO_ELASTIC_SEARCH) {
-                    IndexResponse response;
-                    try {
-                        response = currentBucket.pushToElasticSearch(esClient, indexName);
-                        if (DEBUG) {
-                            System.out.println("Index Insert Response" + response);
-                        }
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                    }
-                }
+
+//                if (objects.getObjectSummaries().size() != 0) {
+//                    /*
+//                     * Storing metadata of the objects/files stored in S3 bucket in form of
+//                     * a collection in the associated bucket
+//                     * */
+//                    Instant maxInstant = null;
+//                    while (true) {
+//                        for (S3ObjectSummary summary : objects.getObjectSummaries()) {
+//                            currentBucket.addObject(summary.getKey(), summary.getStorageClass(), summary.getLastModified(), summary.getSize());
+//                            Instant curInstant = summary.getLastModified().toInstant();
+//                            if (maxInstant == null) {
+//                                maxInstant = curInstant;
+//                            } else {
+//                                if (curInstant.isAfter(maxInstant)) {
+//                                    maxInstant = curInstant;
+//                                }
+//                            }
+//                        }
+//                        if (objects.isTruncated()) {
+//                            objects = s3c.listNextBatchOfObjects(objects);
+//                            currentBucket.addInNumberOfObjects(objects.getObjectSummaries().size());
+//                        } else {
+//                            break;
+//                        }
+//                    }
+//                    currentBucket.setLastModifiedDate(maxInstant);
+//                }
+//                if(ADD_S3_DATA_TO_ELASTIC_SEARCH) {
+//                    IndexResponse response;
+//                    try {
+//                        response = currentBucket.pushToElasticSearch(esClient, indexName);
+//                        if (DEBUG) {
+//                            System.out.println("Index Insert Response" + response);
+//                        }
+//                    } catch (Exception e) {
+//                        e.printStackTrace();
+//                    }
+//                }
                 s3bucketsData.add(currentBucket);
 
-                /*
+
                 if (queries.size() == (numberBucketsClub * metricsPerBucket)) {
                     s3GetMetrics(queries, days, cw);
                     queries.clear();
                 }
-                 */
+
             } catch (Exception e) {
                 e.printStackTrace();
             }
         }
-        /*
+
         for (Map.Entry<Region, ArrayList<MetricDataQuery>> entry : mapperRegionQueries.entrySet()) {
             queries = entry.getValue();
             if (queries.size() != 0) {
@@ -1546,7 +1549,20 @@ class AWSCostOptimizerAndReportGenerator implements AwsCredentialsProvider {
                 queries.clear();
             }
         }
-         */
+
+        if(ADD_S3_DATA_TO_ELASTIC_SEARCH){
+            for(S3BucketData bucket : s3bucketsData) {
+                IndexResponse response;
+                try {
+                    response = bucket.pushToElasticSearch(esClient, indexName);
+                    if (DEBUG) {
+                        System.out.println("Index Insert Response" + response);
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+        }
 
         if(DEBUG) {
             System.out.println("Data S3 Buckets fetched...");
@@ -2082,7 +2098,7 @@ class AWSCostOptimizerAndReportGenerator implements AwsCredentialsProvider {
 
 public class Main {
     public static void main(String[] args) {
-        boolean debug = false;
+        boolean debug = true;
 
         /*
          * Credentials to the AWS account are to be read from the project.properties file

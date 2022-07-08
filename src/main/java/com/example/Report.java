@@ -755,6 +755,44 @@ class Report {
         insertSeparator();
     }
 
+    public void addS3MetaData(ArrayList<S3BucketData> buckets,String heading) {
+        /*
+         * Adding the heading the columns for elastic ips
+         * */
+        HSSFRow currentRow = this.sheet.createRow(this.rowNum);
+        currentRow.createCell(0).setCellValue(heading);
+        sheet.addMergedRegion(new CellRangeAddress(this.rowNum, this.rowNum, 0, 5));
+        this.rowNum += 1;
+        currentRow = this.sheet.createRow(this.rowNum);
+        currentRow.createCell(0).setCellValue("Sr. No.");
+        currentRow.createCell(2).setCellValue("Bucket Name");
+        currentRow.createCell(5).setCellValue("Number of Objects");
+        currentRow.createCell(8).setCellValue("Bucket Size");
+        currentRow.createCell(11).setCellValue("Location");
+        sheet.addMergedRegion(new CellRangeAddress(this.rowNum, this.rowNum, 2, 3));
+        sheet.addMergedRegion(new CellRangeAddress(this.rowNum, this.rowNum, 5, 6));
+        sheet.addMergedRegion(new CellRangeAddress(this.rowNum, this.rowNum, 8, 9));
+        sheet.addMergedRegion(new CellRangeAddress(this.rowNum, this.rowNum, 11, 12));
+        this.rowNum += 1;
+
+        Integer ctr = 1;
+        for (S3BucketData bucket : buckets) {
+            currentRow = sheet.createRow(rowNum);
+            currentRow.createCell(0).setCellValue(ctr.toString());
+            currentRow.createCell(2).setCellValue(bucket.getName());
+            currentRow.createCell(5).setCellValue(bucket.getNumberOfObjects().toString());
+            currentRow.createCell(8).setCellValue(bucket.getBucketSizeBytes().toString());
+            currentRow.createCell(11).setCellValue(bucket.getLocation());
+            sheet.addMergedRegion(new CellRangeAddress(this.rowNum, this.rowNum, 2, 3));
+            sheet.addMergedRegion(new CellRangeAddress(this.rowNum, this.rowNum, 5, 6));
+            sheet.addMergedRegion(new CellRangeAddress(this.rowNum, this.rowNum, 8, 9));
+            sheet.addMergedRegion(new CellRangeAddress(this.rowNum, this.rowNum, 11, 12));
+            this.rowNum += 1;
+            ctr += 1;
+        }
+        insertSeparator();
+    }
+
     /**
      * Method to add the data of backups. Only those backups out of a collection which have been there for
      * more than x days

@@ -1,5 +1,5 @@
 #
-#Thu Jul 07 16:51:48 IST 2022
+#Fri Jul 08 19:59:33 IST 2022
 i3.xlarge=4
 m5dn.24xlarge=96
 i3.16xlarge=64
@@ -150,6 +150,7 @@ g2.2xlarge=8
 c6gd.4xlarge=16
 i3en.12xlarge=48
 m6gd.metal=64
+mac2.metal=8
 inf1.xlarge=4
 f1.2xlarge=8
 x2idn.32xlarge=128

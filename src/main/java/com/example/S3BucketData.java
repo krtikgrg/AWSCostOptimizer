@@ -231,6 +231,10 @@ class S3BucketData implements Comparable<S3BucketData>{
         return -1;
     }
 
+    /**
+     * Method to get the number of objects for the previous day (wrt to today) as collected by the cloudwatch
+     * @return the number of objects (as defined in the method description)
+     */
     public Double getNumberOfObjects(){
         Double numberObjects = 0.0;
         if(this.averageNumberOfObjects.size()>0)
@@ -238,6 +242,10 @@ class S3BucketData implements Comparable<S3BucketData>{
         return numberObjects;
     }
 
+    /**
+     * Method to get the bucket size in bytes for the previous day (wrt to today) as collected by the cloudwatch
+     * @return the bucket size (as defined in the method description)
+     */
     public Double getBucketSizeBytes(){
         double bucketSize = 0.0;
         if(this.averageBucketSizeBytes.size()>0)

@@ -20,9 +20,8 @@ import com.amazonaws.services.ec2.model.DescribeInstancesResult;
 import com.amazonaws.services.ec2.model.Instance;
 import com.amazonaws.services.elasticloadbalancingv2.AmazonElasticLoadBalancing;
 import com.amazonaws.services.elasticloadbalancingv2.AmazonElasticLoadBalancingClient;
-import com.amazonaws.services.elasticloadbalancingv2.model.DescribeLoadBalancersRequest;
-import com.amazonaws.services.elasticloadbalancingv2.model.DescribeLoadBalancersResult;
-import com.amazonaws.services.elasticloadbalancingv2.model.LoadBalancer;
+import com.amazonaws.services.elasticloadbalancingv2.model.*;
+import com.amazonaws.services.elasticloadbalancingv2.model.TargetGroup;
 import com.amazonaws.services.pricing.AWSPricing;
 import com.amazonaws.services.pricing.AWSPricingClient;
 import com.amazonaws.services.pricing.model.Filter;
@@ -64,8 +63,9 @@ class AWSCostOptimizerAndReportGenerator implements AwsCredentialsProvider {
      * One point to note down is even if this is true, this version of code only supports price comparison for linux based instances
      * If it is true then a call to an API is made which takes about 10-12 minutes to run alone.
      */
+    private static ArrayList<Region> AllRegions = new ArrayList<>();
     private static final boolean PRICE_COMPARISON = false;
-    private static final boolean ADD_S3_DATA_TO_ELASTIC_SEARCH = true;
+    private static final boolean ADD_S3_DATA_TO_ELASTIC_SEARCH = false;
     private static final boolean SAVETIME = true; // If true then clubbing of getMetricData API calls happen that is one call for multiple resources else one call for each resource
     private static final boolean SUGGESTION_MODE = true; // If true then we make some suggestions based on pure simple logic for On Demand EC2 Instances (Number of VCPUs, Memory Required, and Which Family's instance should we use)
     private static final int DAYS_OF_DATA = 7; // The number of Days of Data which we should fetch from cloudwatch
@@ -145,6 +145,34 @@ class AWSCostOptimizerAndReportGenerator implements AwsCredentialsProvider {
         AWSCostOptimizerAndReportGenerator.DEBUG = debugStatus;
         CREDENTIALS = new AWSStaticCredentialsProvider(new BasicAWSCredentials(KEY_ID, SECRET_KEY));
         CREDS = AwsBasicCredentials.create(KEY_ID, SECRET_KEY);
+
+        ArrayList<Region> regions = new ArrayList<>();
+        regions.add(Region.US_EAST_1);
+        regions.add(Region.US_EAST_2);
+        regions.add(Region.US_WEST_1);
+        regions.add(Region.US_WEST_2);
+
+        regions.add(Region.AP_SOUTHEAST_1);
+        regions.add(Region.AP_SOUTH_1);
+        regions.add(Region.AP_NORTHEAST_1);
+        regions.add(Region.AP_NORTHEAST_2);
+        regions.add(Region.AP_SOUTHEAST_2);
+        regions.add(Region.AP_SOUTHEAST_2);
+
+        regions.add(Region.CA_CENTRAL_1);
+
+        regions.add(Region.EU_NORTH_1);
+        regions.add(Region.EU_CENTRAL_1);
+        regions.add(Region.EU_WEST_1);
+        regions.add(Region.EU_WEST_2);
+        regions.add(Region.EU_WEST_3);
+
+        regions.add(Region.SA_EAST_1);
+
+//        regions.clear();
+//        regions.add(Region.US_EAST_1);
+
+        AllRegions = regions;
     }
 
     /**
@@ -182,11 +210,19 @@ class AWSCostOptimizerAndReportGenerator implements AwsCredentialsProvider {
      * @param hoursOverWhichStatsRequired the number of hours over which you want to take average, sum, minimum and maximum
      */
     public void getS3Info(int daysOfData, int hoursOverWhichStatsRequired) {
-        S3BasicInfo(REGION, daysOfData, hoursOverWhichStatsRequired);
+        ArrayList<Region> regions = AllRegions;
+        HashMap<Region, CloudWatchClient> mapperRegionCwClient = new HashMap<>();
+
+        for(Region region : regions){
+            CloudWatchClient cloudWatchClient = CloudWatchClient.builder().credentialsProvider(this).region(region).build();
+            mapperRegionCwClient.put(region, cloudWatchClient);
+        }
+        AmazonS3 s3c = AmazonS3Client.builder().withCredentials(CREDENTIALS).withRegion(REGION.toString()).enableForceGlobalBucketAccess().build();
+        S3BasicInfo(daysOfData, hoursOverWhichStatsRequired, s3c, mapperRegionCwClient);
     }
 
     /**
-     * Public Wrapper Function to hide the actual functionality (Abstraction). This method calls another
+     * DO NOT USE Public Wrapper Function to hide the actual functionality (Abstraction). This method calls another
      * private method to fetch details of the EC2 Instances associated to our AWS account and the earlier
      * specified region
      *
@@ -194,18 +230,20 @@ class AWSCostOptimizerAndReportGenerator implements AwsCredentialsProvider {
      * @param hoursOverWhichStatsRequired the number of hours over which you want to take average, sum, minimum and maximum
      */
     public void getEc2InstancesInfo(int daysOfData, int hoursOverWhichStatsRequired) {
-        ec2BasicInfo(REGION, daysOfData, hoursOverWhichStatsRequired);
+        AmazonEC2 client = AmazonEC2Client.builder().withCredentials(CREDENTIALS).withRegion(REGION.toString()).build();
+//        ec2BasicInfo(REGION, daysOfData, hoursOverWhichStatsRequired, client);
     }
 
     /**
-     * Public Wrapper Function to hide the actual functionality (Abstraction). This method calls another
+     * DO NOT USE Public Wrapper Function to hide the actual functionality (Abstraction). This method calls another
      * private method to fetch details of the Load Balancers associated to our AWS account
      *
      * @param daysOfData                  Number of Days for which we want the data, for example last 7 days or last 10 days etc
      * @param hoursOverWhichStatsRequired the number of hours over which you want to take average, sum, minimum and maximum
      */
     public void getLoadBalancerInfo(int daysOfData, int hoursOverWhichStatsRequired) {
-        elbBasicInfo(REGION, daysOfData, hoursOverWhichStatsRequired);
+        AmazonElasticLoadBalancing elbc = AmazonElasticLoadBalancingClient.builder().withCredentials(CREDENTIALS).withRegion(REGION.toString()).build();
+//        elbBasicInfo(REGION, daysOfData, hoursOverWhichStatsRequired, elbc);
     }
 
     /**
@@ -213,7 +251,8 @@ class AWSCostOptimizerAndReportGenerator implements AwsCredentialsProvider {
      * private method to fetch details of the Elastic IP Addresses allocated to our AWS account (for the region specified)
      */
     public void getElasticIpInfo() {
-        eipBasicInfo(REGION);
+        AmazonEC2 client = AmazonEC2Client.builder().withCredentials(CREDENTIALS).withRegion(REGION.toString()).build();
+        eipBasicInfo(REGION, client);
     }
 
     /**
@@ -221,7 +260,8 @@ class AWSCostOptimizerAndReportGenerator implements AwsCredentialsProvider {
      * private method to fetch details of the backups created by our AWS account
      */
     public void getBackupsInfo() {
-        backupsBasicInfo(REGION);
+        AWSBackup client = AWSBackupClient.builder().withCredentials(CREDENTIALS).withRegion(REGION.toString()).build();
+        backupsBasicInfo(REGION, client);
     }
 
     /**
@@ -229,43 +269,33 @@ class AWSCostOptimizerAndReportGenerator implements AwsCredentialsProvider {
      * generate a report based on that data
      */
     public void getDataAndGenerateReport() {
-        S3BasicInfo(REGION,DAYS_OF_DATA,GRANULARITY_IN_HOURS);  // exceptions handled 2
+        ArrayList<Region> regions = AllRegions;
+        HashMap<Region, CloudWatchClient> mapperRegionCwClient = new HashMap<>();
 
-        ArrayList<Region> regions = new ArrayList<>();
-        regions.add(Region.US_EAST_1);
-        regions.add(Region.US_EAST_2);
-        regions.add(Region.US_WEST_1);
-        regions.add(Region.US_WEST_2);
+        for(Region region : regions){
+            CloudWatchClient cloudWatchClient = CloudWatchClient.builder().credentialsProvider(this).region(region).build();
+            mapperRegionCwClient.put(region, cloudWatchClient);
+        }
 
-        regions.add(Region.AP_SOUTHEAST_1);
-        regions.add(Region.AP_SOUTH_1);
-        regions.add(Region.AP_NORTHEAST_1);
-        regions.add(Region.AP_NORTHEAST_2);
-        regions.add(Region.AP_SOUTHEAST_2);
-        regions.add(Region.AP_SOUTHEAST_2);
 
-        regions.add(Region.CA_CENTRAL_1);
-
-        regions.add(Region.EU_NORTH_1);
-        regions.add(Region.EU_CENTRAL_1);
-        regions.add(Region.EU_WEST_1);
-        regions.add(Region.EU_WEST_2);
-        regions.add(Region.EU_WEST_3);
-
-        regions.add(Region.SA_EAST_1);
-
-//        regions.clear();
-//        regions.add(Region.US_EAST_1);
+        AmazonS3 s3c = AmazonS3Client.builder().withCredentials(CREDENTIALS).withRegion(REGION.toString()).enableForceGlobalBucketAccess().build();
+        S3BasicInfo(DAYS_OF_DATA,GRANULARITY_IN_HOURS,s3c,mapperRegionCwClient);  // exceptions handled 2
 
         for(Region region : regions) {
             if(DEBUG)
                 System.out.println("FETCHING DATA FOR REGION "+region.toString()+": ");
             this.setRegion(region);
-            ec2BasicInfo(REGION, DAYS_OF_DATA, GRANULARITY_IN_HOURS); // exceptions handled 5
-            elbBasicInfo(REGION, DAYS_OF_DATA, GRANULARITY_IN_HOURS); // exceptions handled 4
-            ebsBasicInfo(REGION, DAYS_OF_DATA, GRANULARITY_IN_HOURS); // exceptions handles 2
-            eipBasicInfo(REGION); // exceptions handled
-            backupsBasicInfo(REGION); // exceptions handled
+
+            AmazonEC2 ec2Client = AmazonEC2Client.builder().withCredentials(CREDENTIALS).withRegion(REGION.toString()).build();
+            AmazonElasticLoadBalancing elbc = AmazonElasticLoadBalancingClient.builder().withCredentials(CREDENTIALS).withRegion(REGION.toString()).build();
+            AWSBackup backupClient = AWSBackupClient.builder().withCredentials(CREDENTIALS).withRegion(REGION.toString()).build();
+
+
+            ec2BasicInfo(REGION, DAYS_OF_DATA, GRANULARITY_IN_HOURS, ec2Client, mapperRegionCwClient.get(REGION)); // exceptions handled 5
+            elbBasicInfo(REGION, DAYS_OF_DATA, GRANULARITY_IN_HOURS, elbc, mapperRegionCwClient.get(REGION)); // exceptions handled 4
+            ebsBasicInfo(REGION, DAYS_OF_DATA, GRANULARITY_IN_HOURS, ec2Client, mapperRegionCwClient.get(REGION)); // exceptions handles 2
+            eipBasicInfo(REGION, ec2Client); // exceptions handled
+            backupsBasicInfo(REGION, backupClient); // exceptions handled
         }
 
         if(SUGGESTION_MODE)
@@ -314,12 +344,17 @@ class AWSCostOptimizerAndReportGenerator implements AwsCredentialsProvider {
                 report.addRowGaps(2);
             }
 
-            report.createSheetAndLoad("ELB Utilization");
-            report.addHeading("LOAD BALANCERS", 3);
+            report.createSheetAndLoad("ELB Under Utilization");
+            report.addHeading("UNDERUTILIZED LOAD BALANCERS BASED ON RequestCount", 2);
 //            report.addLoadBalancerData(elasticLoadBalancersData, "UNDERUTILIZED LOAD BALANCERS", LOAD_BALANCER_STATISTIC, LOAD_BALANCER_THRESHOLD_COUNT);
             report.addLoadBalancerData(applicationLoadBalancersData, "UNDERUTILIZED APPLICATION LOAD BALANCERS", LOAD_BALANCER_STATISTIC, LOAD_BALANCER_THRESHOLD_COUNT);
             report.addLoadBalancerData(networkLoadBalancersData, "UNDERUTILIZED NETWORK LOAD BALANCERS", LOAD_BALANCER_STATISTIC, LOAD_BALANCER_THRESHOLD_COUNT);
             report.addLoadBalancerData(gatewayLoadBalancersData, "UNDERUTILIZED GATEWAY LOAD BALANCERS", LOAD_BALANCER_STATISTIC, LOAD_BALANCER_THRESHOLD_COUNT);
+            report.addRowGaps(2);
+
+            report.createSheetAndLoad("Idle Load Balancers");
+            report.addHeading("IDLE LOAD BALANCERS BASED ON total targets attached and total healthy targets",2);
+            report.addLoadBalancerTargetData(elasticLoadBalancersData,"IDLE LOAD BALANCERS");
             report.addRowGaps(2);
 
             report.createSheetAndLoad("EBS and Elastic IPs");
@@ -763,8 +798,10 @@ class AWSCostOptimizerAndReportGenerator implements AwsCredentialsProvider {
      * @param region The region in context of which we want the ec2 instances
      * @param days   The number of days of data we want to retrieve the data
      * @param hours  The number of hours over which we want to club the results according to the stats provided
+     * @param client the EC2 Client Object to be used
+     * @param cw the cloudwatch client to be used for fetching the cloudwatch data
      */
-    private void ec2BasicInfo(Region region, int days, int hours) {
+    private void ec2BasicInfo(Region region, int days, int hours, AmazonEC2 client, CloudWatchClient cw) {
         if(DEBUG){
             System.out.println("Fetching Data of EC2 instances, Spot requests and Reserved Instances");
         }
@@ -774,7 +811,7 @@ class AWSCostOptimizerAndReportGenerator implements AwsCredentialsProvider {
         /*
          * Client Generation
          * */
-        AmazonEC2 client = AmazonEC2Client.builder().withCredentials(CREDENTIALS).withRegion(region.toString()).build();
+//        AmazonEC2 client = AmazonEC2Client.builder().withCredentials(CREDENTIALS).withRegion(region.toString()).build();
 
         /*
          * Making a request to describe the purchased Reserved Instances by using the ec2 Client
@@ -857,7 +894,7 @@ class AWSCostOptimizerAndReportGenerator implements AwsCredentialsProvider {
          * */
         DescribeInstancesResult res = client.describeInstances(new DescribeInstancesRequest());
         ArrayList<MetricDataQuery> queries = new ArrayList<>();
-        CloudWatchClient cw = CloudWatchClient.builder().credentialsProvider(this).region(REGION).build();
+//        CloudWatchClient cw = CloudWatchClient.builder().credentialsProvider(this).region(REGION).build();
         while (true) {
             for (Reservation reservation : res.getReservations()) {
                 for (Instance instance : reservation.getInstances()) {
@@ -927,7 +964,6 @@ class AWSCostOptimizerAndReportGenerator implements AwsCredentialsProvider {
             ec2GetMetrics(queries, days, cw);
             queries.clear();
         }
-        cw.close();
 
         if(DEBUG){
             System.out.println("Instances Information Collected...");
@@ -1140,8 +1176,10 @@ class AWSCostOptimizerAndReportGenerator implements AwsCredentialsProvider {
      * @param region The region in context of which we want the ec2 instances
      * @param days   The number of days of data we want to retrieve the data
      * @param hours  The number of hours over which we want to club the results according to the stats provided
+     * @param elbc the Elastic load Balancing Client to be used
+     * @param cw the cloudwatch client to be used while fetching data from the cloudwatch agent
      */
-    private void elbBasicInfo(Region region, int days, int hours) {
+    private void elbBasicInfo(Region region, int days, int hours, AmazonElasticLoadBalancing elbc, CloudWatchClient cw) {
         if(DEBUG){
             System.out.println("Fetching data of Load Balancers");
         }
@@ -1149,13 +1187,14 @@ class AWSCostOptimizerAndReportGenerator implements AwsCredentialsProvider {
         Integer numberLbClub = 120; // max can be 124
         Integer metricsPerLb = 4;
 
-        AmazonElasticLoadBalancing elbc = AmazonElasticLoadBalancingClient.builder().withCredentials(CREDENTIALS).withRegion(region.toString()).build();
         /*
          * Making the request to describe the load balancers
          * */
         DescribeLoadBalancersResult result = elbc.describeLoadBalancers(new DescribeLoadBalancersRequest());
         ArrayList<MetricDataQuery> queries = new ArrayList<>();
-        CloudWatchClient cw = CloudWatchClient.builder().credentialsProvider(this).region(REGION).build();
+//        CloudWatchClient cw = CloudWatchClient.builder().credentialsProvider(this).region(REGION).build();
+
+        HashMap<String, Integer> mapperLoadBalancerToIndex = new HashMap<>();
 
         while (true) {
             for (LoadBalancer lb : result.getLoadBalancers()) {
@@ -1171,6 +1210,7 @@ class AWSCostOptimizerAndReportGenerator implements AwsCredentialsProvider {
                             .withIpAddressType(lb.getIpAddressType())
                             .build();
 
+                    mapperLoadBalancerToIndex.put(lb.getLoadBalancerArn(),elasticLoadBalancersData.size());
                     String arn = lb.getLoadBalancerArn();
                     String lbName = arn.substring(arn.indexOf("loadbalancer") + 13);
 
@@ -1198,11 +1238,42 @@ class AWSCostOptimizerAndReportGenerator implements AwsCredentialsProvider {
             lbGetMetrics(queries, days, cw);
             queries.clear();
         }
-        cw.close();
 
         if(DEBUG){
             System.out.println("Data of load balancers fetched");
             System.out.println("Load Balancers found: "+elasticLoadBalancersData.size());
+            System.out.println();
+            System.out.println("Now fetching data of target Groups");
+        }
+
+        DescribeTargetGroupsResult describeResults = elbc.describeTargetGroups(new DescribeTargetGroupsRequest());
+        while(true) {
+            for (TargetGroup targetGroup : describeResults.getTargetGroups()) {
+                int totalTargets = 0;
+                int totalUnHealthyTargets = 0;
+                int totalHealthyTargets;
+                DescribeTargetHealthResult targetGroupHeath = elbc.describeTargetHealth(new DescribeTargetHealthRequest().withTargetGroupArn(targetGroup.getTargetGroupArn()));
+                for(TargetHealthDescription description : targetGroupHeath.getTargetHealthDescriptions()){
+                    if(description.getTarget().getId()!=null)
+                        totalTargets += 1;
+                    if(!description.getTargetHealth().getState().equals("healthy"))
+                        totalUnHealthyTargets += 1;
+                }
+                totalHealthyTargets = totalTargets - totalUnHealthyTargets;
+                for(String curArn: targetGroup.getLoadBalancerArns()){
+                    if(!mapperLoadBalancerToIndex.containsKey(curArn))
+                        continue;
+                    Integer index = mapperLoadBalancerToIndex.get(curArn);
+                    elasticLoadBalancersData.get(index).setTargetsInfo(totalTargets, totalHealthyTargets);
+                }
+            }
+            if(describeResults.getNextMarker() == null || describeResults.getNextMarker().equals(""))
+                break;
+            describeResults = elbc.describeTargetGroups(new DescribeTargetGroupsRequest().withMarker(describeResults.getNextMarker()));
+        }
+
+        if(DEBUG){
+            System.out.println("Data of target groups fetched");
             System.out.println();
         }
     }
@@ -1404,20 +1475,22 @@ class AWSCostOptimizerAndReportGenerator implements AwsCredentialsProvider {
      * all the buckets in all the regions will be retrieved. We create a S3 client object
      * to achieve our functionality.
      *
-     * @param region The region in context of which we want data, although any value can be passed here (just acts as a placeholder)
      * @param days   The number of days of data we want to retrieve the data
      * @param hours  The number of hours over which we want to club the results according to the stats provided
+     * @param s3c s3 client to be used
+     * @param mapperRegionCwClient the map storing region to respective cloudwatch client mapping
      */
-    private void S3BasicInfo(Region region, int days, int hours) {
+    private void S3BasicInfo(int days, int hours, AmazonS3 s3c,HashMap<Region, CloudWatchClient> mapperRegionCwClient) {
         if(DEBUG){
             System.out.println("Fetching data of buckets");
         }
 
         boolean createIndex = true;
         String indexName = "testing-index-final";
-        ElasticsearchClient esClient = createElasticSearchClient();
+        ElasticsearchClient esClient;
 
         if(ADD_S3_DATA_TO_ELASTIC_SEARCH && createIndex) {
+            esClient = createElasticSearchClient();
             try {
                 createElasticSearchIndex(esClient, indexName);
             } catch (Exception e) {
@@ -1430,11 +1503,15 @@ class AWSCostOptimizerAndReportGenerator implements AwsCredentialsProvider {
         /*
          * This API gives all buckets in the AWS account, no REGION dependency
          * */
-        AmazonS3 s3c = AmazonS3Client.builder().withCredentials(CREDENTIALS).withRegion(region.toString()).enableForceGlobalBucketAccess().build();
 
         ArrayList<MetricDataQuery> queries;
-        HashMap<Region, CloudWatchClient> mapperRegionClient = new HashMap<>();
+//        HashMap<Region, CloudWatchClient> mapperRegionCwClient = new HashMap<>();
         HashMap<Region, ArrayList<MetricDataQuery>> mapperRegionQueries = new HashMap<>();
+        for (Map.Entry<Region, CloudWatchClient> entry : mapperRegionCwClient.entrySet()) {
+            Region curRegion = entry.getKey();
+            mapperRegionQueries.put(curRegion, new ArrayList<>());
+        }
+
 
         for (Bucket bucket : s3c.listBuckets()) {
             /*
@@ -1473,13 +1550,13 @@ class AWSCostOptimizerAndReportGenerator implements AwsCredentialsProvider {
 
 
                 Region curRegion = Region.of(location);
-                if (!mapperRegionClient.containsKey(curRegion)) {
+                if (!mapperRegionCwClient.containsKey(curRegion)) {
                     CloudWatchClient cloudWatchClient = CloudWatchClient.builder().credentialsProvider(this).region(curRegion).build();
-                    mapperRegionClient.put(curRegion, cloudWatchClient);
+                    mapperRegionCwClient.put(curRegion, cloudWatchClient);
                     mapperRegionQueries.put(curRegion, new ArrayList<>());
                 }
                 queries = mapperRegionQueries.get(curRegion);
-                CloudWatchClient cw = mapperRegionClient.get(curRegion);
+                CloudWatchClient cw = mapperRegionCwClient.get(curRegion);
                 if (!SAVETIME) {
                     getCloudWatchMetricsS3(currentBucket, days, hours, curRegion);
                 } else {
@@ -1545,7 +1622,7 @@ class AWSCostOptimizerAndReportGenerator implements AwsCredentialsProvider {
         for (Map.Entry<Region, ArrayList<MetricDataQuery>> entry : mapperRegionQueries.entrySet()) {
             queries = entry.getValue();
             if (queries.size() != 0) {
-                s3GetMetrics(queries, days, mapperRegionClient.get(entry.getKey()));
+                s3GetMetrics(queries, days, mapperRegionCwClient.get(entry.getKey()));
                 queries.clear();
             }
         }
@@ -1716,18 +1793,20 @@ class AWSCostOptimizerAndReportGenerator implements AwsCredentialsProvider {
      * @param region The AWS Region of which we want the data
      * @param days   The number of days of which we want the data
      * @param hours  The number of hours over which we want to club the results according to the stats provided
+     * @param client the Ec2 Client Object to be used
+     * @param cw cloudwatch client to be used while fetching data from the cloudwatch agent
      */
-    private void ebsBasicInfo(Region region, int days, int hours) {
+    private void ebsBasicInfo(Region region, int days, int hours, AmazonEC2 client, CloudWatchClient cw) {
         if(DEBUG){
             System.out.println("Data of EBS Volumes is to be fetched now");
         }
 
         int numberClubVolumes = 240; // max value can be 249
         int metricsPerVolume = 2;
-        AmazonEC2 client = AmazonEC2Client.builder().withCredentials(CREDENTIALS).withRegion(region.toString()).build();
+//        AmazonEC2 client = AmazonEC2Client.builder().withCredentials(CREDENTIALS).withRegion(region.toString()).build();
         DescribeVolumesResult result = client.describeVolumes(new DescribeVolumesRequest().withMaxResults(500));
         ArrayList<MetricDataQuery> queries = new ArrayList<>();
-        CloudWatchClient cw = CloudWatchClient.builder().credentialsProvider(this).region(REGION).build();
+//        CloudWatchClient cw = CloudWatchClient.builder().credentialsProvider(this).region(REGION).build();
         while (true) {
             for (Volume volume : result.getVolumes()) {
                 try {
@@ -1780,13 +1859,14 @@ class AWSCostOptimizerAndReportGenerator implements AwsCredentialsProvider {
      * of a Region class object.
      *
      * @param region The Region Object of the location for which we want to get the Elastic Ip Information
+     * @param client the Ec2 Client to be used while making API Calls
      */
-    private void eipBasicInfo(Region region) {
+    private void eipBasicInfo(Region region, AmazonEC2 client) {
         if(DEBUG){
             System.out.println("Fetching data of Elastic IPs");
         }
 
-        AmazonEC2 client = AmazonEC2Client.builder().withCredentials(CREDENTIALS).withRegion(region.toString()).build();
+//        AmazonEC2 client = AmazonEC2Client.builder().withCredentials(CREDENTIALS).withRegion(region.toString()).build();
         DescribeAddressesResult addressesResult = client.describeAddresses();
 
         for (Address address : addressesResult.getAddresses()) {
@@ -1819,8 +1899,9 @@ class AWSCostOptimizerAndReportGenerator implements AwsCredentialsProvider {
      * respective vaults created in our AWS account.
      *
      * @param region The Region Object associated with the location for which we want our data
+     * @param client the Backup client Object to be used
      */
-    private void backupsBasicInfo(Region region) {
+    private void backupsBasicInfo(Region region, AWSBackup client) {
         if(DEBUG){
             System.out.println("Fetching Data of Snapshots/Backups");
         }
@@ -1828,7 +1909,7 @@ class AWSCostOptimizerAndReportGenerator implements AwsCredentialsProvider {
         /*
          * Creating the AWS backup client
          * */
-        AWSBackup client = AWSBackupClient.builder().withCredentials(CREDENTIALS).withRegion(region.toString()).build();
+//        AWSBackup client = AWSBackupClient.builder().withCredentials(CREDENTIALS).withRegion(region.toString()).build();
 
         /*
          * Listing the vaults present in our account

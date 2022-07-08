@@ -719,6 +719,52 @@ class Report {
     }
 
     /**
+     * Method to add the Idle load balancers which have 0 targets attached or having 0 healthy targets
+     * @param loadBalancers the list of the load balancers
+     * @param heading the heading to give to this section of the report
+     */
+    public void addLoadBalancerTargetData(ArrayList<ElasticLoadBalancerData> loadBalancers, String heading) {
+        /*
+         * Adding the heading and the respective columns for load balancers which should be there
+         * */
+        HSSFRow currentRow = this.sheet.createRow(this.rowNum);
+        currentRow.createCell(0).setCellValue(heading);
+        sheet.addMergedRegion(new CellRangeAddress(this.rowNum, this.rowNum, 0, 4));
+
+        currentRow = this.sheet.createRow(this.rowNum);
+        currentRow.createCell(0).setCellValue("Sr. No.");
+        currentRow.createCell(2).setCellValue("Load Balancer Name");
+        currentRow.createCell(5).setCellValue("Region");
+        currentRow.createCell(8).setCellValue("Total Targets");
+        currentRow.createCell(11).setCellValue("Healthy Targets");
+        sheet.addMergedRegion(new CellRangeAddress(this.rowNum, this.rowNum, 2, 3));
+        sheet.addMergedRegion(new CellRangeAddress(this.rowNum, this.rowNum, 5, 6));
+        sheet.addMergedRegion(new CellRangeAddress(this.rowNum, this.rowNum, 8, 9));
+        sheet.addMergedRegion(new CellRangeAddress(this.rowNum, this.rowNum, 11, 12));
+        this.rowNum += 1;
+
+
+        Integer ctr = 1;
+        for (ElasticLoadBalancerData loadBalancer : loadBalancers) {
+            if (loadBalancer.isIdle()) {
+                currentRow = sheet.createRow(rowNum);
+                currentRow.createCell(0).setCellValue(ctr.toString());
+                currentRow.createCell(2).setCellValue(loadBalancer.getName());
+                currentRow.createCell(5).setCellValue(loadBalancer.getRegion());
+                currentRow.createCell(8).setCellValue(loadBalancer.getTotalTargets().toString());
+                currentRow.createCell(11).setCellValue(loadBalancer.getTotalHealthyTargets().toString());
+                sheet.addMergedRegion(new CellRangeAddress(this.rowNum, this.rowNum, 2, 3));
+                sheet.addMergedRegion(new CellRangeAddress(this.rowNum, this.rowNum, 5, 6));
+                sheet.addMergedRegion(new CellRangeAddress(this.rowNum, this.rowNum, 8, 9));
+                sheet.addMergedRegion(new CellRangeAddress(this.rowNum, this.rowNum, 11, 12));
+                this.rowNum += 1;
+                ctr += 1;
+            }
+        }
+        insertSeparator();
+    }
+
+    /**
      * Method to add the information of a collection elastic ips (Only the IPs which are not associated to anything) in the report
      * @param elasticIps the collection of the elastic ips which are to be added in the report
      * @param heading the heading which is to be added before the information about the elastic ips
@@ -755,9 +801,14 @@ class Report {
         insertSeparator();
     }
 
+    /**
+     * Method to add meta data of s3 buckets to the excel report we have
+     * @param buckets the list of buckets
+     * @param heading the head to be given for this section of the report
+     */
     public void addS3MetaData(ArrayList<S3BucketData> buckets,String heading) {
         /*
-         * Adding the heading the columns for elastic ips
+         * Adding the heading the columns for S3
          * */
         HSSFRow currentRow = this.sheet.createRow(this.rowNum);
         currentRow.createCell(0).setCellValue(heading);
@@ -974,6 +1025,7 @@ class Report {
         currentRow.createCell(0).setCellValue(this.separator);
         this.rowNum += 1;
     }
+
 
 }
 

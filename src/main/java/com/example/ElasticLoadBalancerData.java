@@ -25,6 +25,34 @@ class ElasticLoadBalancerData {
     private ArrayList<StatisticRecord> sumMetricData = new ArrayList<>();
 
     private Region region;
+    private int totalTargets = 0;
+    private  int totalHealthyTargets = 0;
+
+    /**
+     * Method to check if the load balancer is in idle state in terms of the target number and the healthy target number
+     * @return true if any of the above-mentioned parameters is zero else we return false
+     */
+    public boolean isIdle() {
+        if(this.totalTargets == 0 || this.totalHealthyTargets == 0)
+            return true;
+        return false;
+    }
+
+    /**
+     * method to return the total number of targets
+     * @return the total targets for the load balancer in context
+     */
+    public Integer getTotalTargets() {
+        return totalTargets;
+    }
+
+    /**
+     * method to return the total healthy targets
+     * @return the total healthy targets for the load balancer in context
+     */
+    public Integer getTotalHealthyTargets(){
+        return totalHealthyTargets;
+    }
 
     /**
      * Builder class to help in creating objects of the parent elastic load balancer data class
@@ -113,6 +141,16 @@ class ElasticLoadBalancerData {
     public void setMaximumMetricData(ArrayList<StatisticRecord> array){
         if(array!=null)
             this.maximumMetricData.addAll(array);
+    }
+
+    /**
+     * Method to tell the information about total targets and total healthy targets for a load balancer
+     * @param total the number of total targets associated with the load balancer in context
+     * @param healthy the number of total healthy targets associated with the load balancer in context
+     */
+    public void setTargetsInfo(int total, int healthy){
+        this.totalTargets = total;
+        this.totalHealthyTargets = healthy;
     }
 
     /**
@@ -221,6 +259,9 @@ class ElasticLoadBalancerData {
                 ", minimumMetricData=" + minimumMetricData +
                 ", maximumMetricData=" + maximumMetricData +
                 ", sumMetricData=" + sumMetricData +
+                ", region=" + region +
+                ", totalTargets=" + totalTargets +
+                ", totalHealthyTargets=" + totalHealthyTargets +
                 '}';
     }
 

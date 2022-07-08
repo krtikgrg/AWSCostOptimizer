@@ -231,48 +231,48 @@ class AWSCostOptimizerAndReportGenerator implements AwsCredentialsProvider {
     public void getDataAndGenerateReport() {
         S3BasicInfo(REGION,DAYS_OF_DATA,GRANULARITY_IN_HOURS);  // exceptions handled 2
 
-//        ArrayList<Region> regions = new ArrayList<>();
+        ArrayList<Region> regions = new ArrayList<>();
+        regions.add(Region.US_EAST_1);
+        regions.add(Region.US_EAST_2);
+        regions.add(Region.US_WEST_1);
+        regions.add(Region.US_WEST_2);
+
+        regions.add(Region.AP_SOUTHEAST_1);
+        regions.add(Region.AP_SOUTH_1);
+        regions.add(Region.AP_NORTHEAST_1);
+        regions.add(Region.AP_NORTHEAST_2);
+        regions.add(Region.AP_SOUTHEAST_2);
+        regions.add(Region.AP_SOUTHEAST_2);
+
+        regions.add(Region.CA_CENTRAL_1);
+
+        regions.add(Region.EU_NORTH_1);
+        regions.add(Region.EU_CENTRAL_1);
+        regions.add(Region.EU_WEST_1);
+        regions.add(Region.EU_WEST_2);
+        regions.add(Region.EU_WEST_3);
+
+        regions.add(Region.SA_EAST_1);
+
+//        regions.clear();
 //        regions.add(Region.US_EAST_1);
-//        regions.add(Region.US_EAST_2);
-//        regions.add(Region.US_WEST_1);
-//        regions.add(Region.US_WEST_2);
-//
-//        regions.add(Region.AP_SOUTHEAST_1);
-//        regions.add(Region.AP_SOUTH_1);
-//        regions.add(Region.AP_NORTHEAST_1);
-//        regions.add(Region.AP_NORTHEAST_2);
-//        regions.add(Region.AP_SOUTHEAST_2);
-//        regions.add(Region.AP_SOUTHEAST_2);
-//
-//        regions.add(Region.CA_CENTRAL_1);
-//
-//        regions.add(Region.EU_NORTH_1);
-//        regions.add(Region.EU_CENTRAL_1);
-//        regions.add(Region.EU_WEST_1);
-//        regions.add(Region.EU_WEST_2);
-//        regions.add(Region.EU_WEST_3);
-//
-//        regions.add(Region.SA_EAST_1);
-//
-////        regions.clear();
-////        regions.add(Region.US_EAST_1);
-//
-//        for(Region region : regions) {
-//            if(DEBUG)
-//                System.out.println("FETCHING DATA FOR REGION "+region.toString()+": ");
-//            this.setRegion(region);
-//            ec2BasicInfo(REGION, DAYS_OF_DATA, GRANULARITY_IN_HOURS); // exceptions handled 5
-//            elbBasicInfo(REGION, DAYS_OF_DATA, GRANULARITY_IN_HOURS); // exceptions handled 4
-//            ebsBasicInfo(REGION, DAYS_OF_DATA, GRANULARITY_IN_HOURS); // exceptions handles 2
-//            eipBasicInfo(REGION); // exceptions handled
-//            backupsBasicInfo(REGION); // exceptions handled
-//        }
-//
-//        if(SUGGESTION_MODE)
-//            getAllInstanceTypesInfo(Region.US_EAST_1,true);
-//
-//        if(PRICE_COMPARISON)
-//            getOneTimeEc2Info(Region.US_EAST_1, false);
+
+        for(Region region : regions) {
+            if(DEBUG)
+                System.out.println("FETCHING DATA FOR REGION "+region.toString()+": ");
+            this.setRegion(region);
+            ec2BasicInfo(REGION, DAYS_OF_DATA, GRANULARITY_IN_HOURS); // exceptions handled 5
+            elbBasicInfo(REGION, DAYS_OF_DATA, GRANULARITY_IN_HOURS); // exceptions handled 4
+            ebsBasicInfo(REGION, DAYS_OF_DATA, GRANULARITY_IN_HOURS); // exceptions handles 2
+            eipBasicInfo(REGION); // exceptions handled
+            backupsBasicInfo(REGION); // exceptions handled
+        }
+
+        if(SUGGESTION_MODE)
+            getAllInstanceTypesInfo(Region.US_EAST_1,true);
+
+        if(PRICE_COMPARISON)
+            getOneTimeEc2Info(Region.US_EAST_1, false);
         makeExcelReportFile(REPORT_FILENAME_WITH_PATH); // exceptions handled
     }
 
